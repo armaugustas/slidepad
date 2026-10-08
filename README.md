@@ -19,20 +19,19 @@ Phones are detected automatically: open the same link on a phone and you get the
 
 ## On the phone
 
-- **Live slide preview** — the current slide, plus the next one if you can drive.
-- **Speaker notes** — follow the slides live, with adjustable text size.
-- **Back / Next** — big thumb-sized buttons. Flicking the slide preview left or right works too.
-- **Laser** — drag on the pad to steer a glowing dot on the big screen. Slow is precise, fast crosses the screen. Tap for the next slide.
+- **The slide** — a live preview of what’s on the big screen. **Touch it to point**: a laser dot appears in the same spot up there.
+- **Notes** — the speaker notes for this slide, with adjustable text size.
+- **Back / Next** — two big buttons at the bottom.
 
 ## Roles
 
-| | Sees slides & notes | Changes slides | Laser | Switches presentations, manages people & settings |
-|---|---|---|---|---|
-| **Admin** | ✓ | ✓ | ✓ | ✓ |
-| **Teammate** | ✓ | ✓ | if allowed | |
-| **Member** | ✓ | | | |
+| | Sees slides & notes | Changes slides & points | Switches presentations, manages people |
+|---|---|---|---|
+| **Admin** | ✓ | ✓ | ✓ |
+| **Teammate** | ✓ | ✓ | |
+| **Member** | ✓ | | |
 
-Change anyone’s role from the computer’s **People** panel or from an admin’s phone menu. Settings: what role new people get, whether teammates can use the laser, and **Lock the room** so no one new can join.
+Change anyone’s role from the computer’s **People** panel or from an admin’s phone menu. Two room settings (behind the gear): whether new people can drive, and **Lock the room** so no one new can join.
 
 Scanning the QR code lets you straight in. Typing the 6-digit code instead needs a yes — from the computer or any admin’s phone.
 
@@ -76,9 +75,13 @@ npm run dev      # serves docs/ on :5173 and prints a Wi-Fi URL your phone can o
 
 Open the **Wi-Fi URL** on the computer (not `localhost`) so the QR code points somewhere your phone can reach.
 
+## Design
+
+Bound to the Kaching house system from the Larpo engine — see [DESIGN.md](DESIGN.md).
+
 ## Credits
 
-Logo and interface icons: [Lucide](https://lucide.dev) (ISC License). PDF rendering: [pdf.js](https://mozilla.github.io/pdf.js/). Peer-to-peer: [PeerJS](https://peerjs.com). Notes: [JSZip](https://stuk.github.io/jszip/). QR: [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator).
+Type: [Geist](https://vercel.com/font) (OFL). Logo and interface icons: [Lucide](https://lucide.dev) (ISC License). PDF rendering: [pdf.js](https://mozilla.github.io/pdf.js/). Peer-to-peer: [PeerJS](https://peerjs.com). Notes: [JSZip](https://stuk.github.io/jszip/). QR: [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator).
 
 ## License
 

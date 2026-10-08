@@ -46,33 +46,33 @@ function withCaches(deck, draw) {
 const DEMO = [
   {
     kicker: "Slidepad",
-    title: ["Your phone", "is the clicker."],
-    body: "No app, no login. Scan the code and you’re in.",
-    notes: "Welcome! This text is a speaker note.\n\nNotes show up live on every connected phone and follow the slides as you move.",
+    title: ["Your Phone Is", "The Clicker"],
+    body: "No app, no login. Scan the code on the screen and you’re in.",
+    notes: "These are speaker notes. They show up on every phone that joins and follow the slides as you go.",
   },
   {
-    kicker: "Advance",
-    title: ["Next, Back,", "or flick."],
-    body: "Big buttons for your thumb. Flick the slide preview left or right to move too.",
-    notes: "Try it: press Next on your phone, or flick the little slide preview at the top.",
+    kicker: "Next",
+    title: ["Back And Next", "At Your Thumb"],
+    body: "Two big buttons at the bottom of your phone. That’s the whole remote.",
+    notes: "Try it now: tap Next on your phone.",
   },
   {
     kicker: "Point",
-    title: ["Drag to aim", "the laser."],
-    body: "Open the Laser tab and slide a finger. Slow is precise, fast crosses the screen.",
-    notes: "The laser fades out on its own a moment after you stop moving.",
+    title: ["Touch The Slide", "To Point"],
+    body: "Put a finger on the slide preview and a laser dot appears in the same spot up here.",
+    notes: "Slide your finger to move it. Lift it and the dot goes away.",
   },
   {
-    kicker: "Together",
-    title: ["Bring the", "whole team."],
-    body: "Admins run the show. Teammates can drive. Members follow along with the notes.",
-    notes: "Everyone who scans joins. Change roles under People — on the computer or from the admin’s phone.",
+    kicker: "Team",
+    title: ["Bring Everyone", "Along"],
+    body: "Anyone who scans can follow with the notes. The admin decides who can drive.",
+    notes: "The first phone to join is the admin. Change roles from the menu.",
   },
   {
     kicker: "Your decks",
-    title: ["Drop in PDFs.", "Notes too."],
-    body: "Add the matching .pptx to bring speaker notes. Switch decks right from your phone.",
-    notes: "Keynote: File → Export To → PDF for slides, and → PowerPoint for the notes.",
+    title: ["Drop In A PDF.", "Notes Come Too."],
+    body: "Add the .pptx with the same name and its speaker notes come along.",
+    notes: "From Keynote: export once to PDF and once to PowerPoint.",
   },
 ];
 
@@ -90,41 +90,42 @@ function wrap(ctx, text, maxWidth) {
 
 async function drawDemo(i, w, h, dpr) {
   const s = DEMO[i];
+  await document.fonts?.load('600 100px "Geist"').catch(() => {});
   // Fit a 16:9 slide inside w×h.
   const sw = Math.min(w, (h * 16) / 9);
   const sh = (sw * 9) / 16;
   const canvas = makeCanvas(sw, sh, dpr);
   const ctx = canvas.getContext("2d");
   ctx.scale(canvas.width / 1600, canvas.height / 900);
-  const font = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  const font = '"Geist", ui-sans-serif, system-ui, -apple-system, sans-serif';
 
-  const bg = ctx.createLinearGradient(0, 0, 0, 900);
-  bg.addColorStop(0, "#131316");
-  bg.addColorStop(1, "#0b0b0d");
-  ctx.fillStyle = bg;
+  ctx.fillStyle = "#f7f7f7";
   ctx.fillRect(0, 0, 1600, 900);
-  const glow = ctx.createRadialGradient(1360, 140, 0, 1360, 140, 760);
-  glow.addColorStop(0, "rgba(255,90,54,0.20)");
-  glow.addColorStop(1, "rgba(255,90,54,0)");
+  const glow = ctx.createRadialGradient(1420, 900, 0, 1420, 900, 700);
+  glow.addColorStop(0, "rgba(255,77,46,0.16)");
+  glow.addColorStop(1, "rgba(255,77,46,0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, 1600, 900);
 
-  const x = 150;
+  const x = 140;
   ctx.textBaseline = "alphabetic";
-  ctx.font = `500 30px ui-monospace, "SF Mono", Menlo, monospace`;
-  ctx.fillStyle = "#6e6e76";
-  ctx.fillText(String(i + 1).padStart(2, "0"), x, 300);
-  ctx.font = `650 30px ${font}`;
-  ctx.fillStyle = "#ff5a36";
-  ctx.fillText(s.kicker.toUpperCase().split("").join(" "), x + 62, 300);
+  ctx.fillStyle = "#ff4d2e";
+  ctx.beginPath();
+  ctx.arc(x + 9, 282, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.font = `600 32px ${font}`;
+  ctx.fillStyle = "#666";
+  ctx.fillText(`${String(i + 1).padStart(2, "0")}  ${s.kicker}`, x + 34, 293);
 
-  ctx.font = `700 132px ${font}`;
-  ctx.fillStyle = "#f5f5f4";
-  s.title.forEach((line, n) => ctx.fillText(line, x - 4, 440 + n * 136));
+  ctx.font = `600 128px ${font}`;
+  ctx.fillStyle = "#171717";
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "-7px";
+  s.title.forEach((line, n) => ctx.fillText(line, x - 6, 450 + n * 140));
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "-1px";
 
-  ctx.font = `400 40px ${font}`;
-  ctx.fillStyle = "#a1a1a8";
-  wrap(ctx, s.body, 1100).forEach((line, n) => ctx.fillText(line, x, 700 + n * 56));
+  ctx.font = `500 40px ${font}`;
+  ctx.fillStyle = "#666";
+  wrap(ctx, s.body, 1080).forEach((line, n) => ctx.fillText(line, x, 700 + n * 56));
   return canvas;
 }
 

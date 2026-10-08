@@ -7,6 +7,8 @@ const files = {
   "node_modules/pdfjs-dist/build/pdf.min.mjs": "pdf.min.mjs",
   "node_modules/pdfjs-dist/build/pdf.worker.min.mjs": "pdf.worker.min.mjs",
   "node_modules/jszip/dist/jszip.min.js": "jszip.min.js",
+  "node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2": "geist.woff2",
+  "node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2": "geist-mono.woff2",
 };
 
 mkdirSync("docs/vendor", { recursive: true });
