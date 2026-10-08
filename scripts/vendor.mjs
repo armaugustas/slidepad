@@ -2,7 +2,7 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 
 const files = {
-  "node_modules/peerjs/dist/peerjs.min.js": "peerjs.min.js",
+  "node_modules/mqtt/dist/mqtt.min.js": "mqtt.min.js",
   "node_modules/qrcode-generator/qrcode.js": "qrcode.js",
   "node_modules/pdfjs-dist/build/pdf.min.mjs": "pdf.min.mjs",
   "node_modules/pdfjs-dist/build/pdf.worker.min.mjs": "pdf.worker.min.mjs",

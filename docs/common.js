@@ -1,9 +1,5 @@
 // Shared between the screen (desktop) and remote (phone) sides.
 
-/** Namespaces our peer IDs on the public PeerJS broker. Bump when the wire protocol changes. */
-export const PEER_PREFIX = "slidepad-v3-";
-export const CONNECT_TIMEOUT_MS = 15000;
-
 // The mark is Lucide’s “presentation” icon (ISC), drawn bare — no container — per the house logo rule.
 export const LOGO = `<svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/><circle cx="15.5" cy="9.5" r="2" fill="var(--laser)" stroke="none"/>
@@ -53,12 +49,5 @@ export const prefs = {
   set(key, value) { try { localStorage.setItem(key, value); } catch {} },
 };
 
-/** PeerJS error types that mean "the broker or network hiccuped" rather than a real failure. */
+
 export const cleanName = (name, fallback) => String(name ?? "").replace(/\s+/g, " ").trim().slice(0, 32) || fallback;
-
-export const TRANSIENT_PEER_ERRORS = new Set(["network", "server-error", "socket-error", "socket-closed", "disconnected"]);
-
-export function createPeer(id) {
-  if (!window.Peer) throw new Error("PeerJS failed to load");
-  return new window.Peer(id, { debug: 1 });
-}

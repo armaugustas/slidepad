@@ -1,13 +1,12 @@
 // Desktop side: hosts the session, keeps the presentation library, runs the room (people + roles),
 // and presents slides with a laser that phones point by touching their slide preview.
-import {
-  $, LOGO, PEER_PREFIX, ROLES, TRANSIENT_PEER_ERRORS, canDrive, cleanName, createPeer, esc, formatCode, prefs, randomId, session,
-} from "./common.js";
+import { $, LOGO, ROLES, canDrive, cleanName, esc, formatCode, prefs, randomId, session } from "./common.js";
 import { demoDeck, pdfDeck } from "./deck.js";
 import { mountDither } from "./dither.js";
 import { icon } from "./icons.js";
 import { library } from "./library.js";
 import { isNotesFile, notesFromFile } from "./notes.js";
+import { hostRoom, transportSupported } from "./transport.js";
 
 const SESSION_KEY = "slidepad.host";
 const ACTIVE_KEY = "slidepad.active";
@@ -43,10 +42,10 @@ const TEMPLATE = `
             <div class="qr" id="qr"></div>
             <div class="join-copy">
               <h2 id="joinTitle">Join on your phone</h2>
-              <p>Scan with the camera, or open <b id="host"></b> and enter</p>
-              <p class="code" id="code"></p>
+              <p>Scan with the camera, or open <b id="host"></b> and enter the code.</p>
               <p class="status" id="pairStatus"><span class="dot"></span><span id="pairStatusText">Starting…</span></p>
             </div>
+            <div class="join-code"><span>Code</span><p class="code" id="code"></p></div>
             <p class="note" id="lanNote" hidden>Phones can’t open <b>localhost</b>. Open this page from your computer’s Wi-Fi address instead (<code>npm run dev</code> prints it).</p>
           </section>
 
@@ -129,7 +128,7 @@ export function start(root) {
   /** cid -> { cid, name, device, role, conn } — survives a refresh so roles stick. */
   const people = new Map((saved.people ?? []).map((p) => [p.cid, { ...p, conn: null }]));
   const banned = new Set(saved.banned ?? []);
-  /** Typed-code joiners waiting for a yes: { cid, name, device, conn } */
+  /** Typed-code joiners waiting for a yes: { cid, name, device } */
   const pending = [];
 
   const decks = [demoDeck()];
@@ -137,8 +136,8 @@ export function start(root) {
   let activeId = prefs.get(ACTIVE_KEY) ?? "demo";
   let index = 0;
   let view = "home";
-  let peer = null;
-  let retryTimer = 0;
+  let host = null;
+  let netToken = 0;
 
   const active = () => decks.find((d) => d.id === activeId) ?? decks[0];
   const online = () => [...people.values()].filter((p) => p.conn?.open);
@@ -187,79 +186,55 @@ export function start(root) {
       ready: "Ready",
       reconnecting: "Reconnecting…",
       error: "Offline — check your internet",
+      insecure: "Needs https — open the published site",
     }[state];
   }
 
-  function startPeer() {
-    clearTimeout(retryTimer);
-    peer?.destroy();
+  async function startNet() {
+    const token = ++netToken;
+    host?.stop();
+    host = null;
+    if (!transportSupported()) return setPairStatus("insecure");
     setPairStatus("connecting");
-    let p;
-    try { p = createPeer(PEER_PREFIX + code); } catch { return setPairStatus("error"); }
-    peer = p;
-    p.on("open", () => p === peer && setPairStatus("ready"));
-    p.on("connection", onConnection);
-    p.on("disconnected", () => {
-      if (p !== peer || p.destroyed) return;
-      setPairStatus("reconnecting");
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(() => p.disconnected && !p.destroyed && p.reconnect(), 1500);
-    });
-    p.on("error", (err) => {
-      if (p !== peer) return;
-      if (err.type === "unavailable-id") { newSession(); startPeer(); }
-      else if (TRANSIENT_PEER_ERRORS.has(err.type)) {
-        setPairStatus("reconnecting");
-        clearTimeout(retryTimer);
-        // reconnect() keeps live phone connections; only rebuild if the peer is gone entirely.
-        retryTimer = setTimeout(() => (p.destroyed ? startPeer() : p.disconnected && p.reconnect()), 3000);
-      } else console.warn("[slidepad]", err.type, err);
-    });
+    try {
+      const h = await hostRoom({
+        code, secret,
+        onStatus: (s) => token === netToken && setPairStatus(s === "online" ? "ready" : "reconnecting"),
+        onJoin: (link, info) => token === netToken && onJoin(link, info),
+        onLobby: (info) => token === netToken && onLobby(info),
+        onLobbyGone: (cid) => token === netToken && dropPending(cid),
+      });
+      if (token !== netToken) return h.stop();
+      host = h;
+      if (h.online) setPairStatus("ready");
+    } catch (err) {
+      console.warn("[slidepad] network failed", err);
+      if (token === netToken) setPairStatus("error");
+    }
   }
 
   // ── Phones joining ───────────────────────────────────────────────────────
-  function onConnection(conn) {
-    conn.on("data", (msg) => {
-      if (!msg || typeof msg !== "object") return;
-      if (msg.t === "hello" && !conn.slidepad) return hello(conn, msg);
-      const p = conn.slidepad?.person;
-      if (p && p.conn === conn) handle(p, msg);
-    });
-    const gone = () => {
-      const s = conn.slidepad;
-      if (!s) return;
-      if (s.person?.conn === conn) { s.person.conn = null; syncRoom(); }
-      if (s.pending) dropPending(s.pending);
-      conn.slidepad = null;
+  function reject(link, status) {
+    link.send({ t: "welcome", status });
+    link.close();
+  }
+
+  /** A phone holding the room secret (scanned the QR, or was let in) said hello. */
+  function onJoin(link, info) {
+    const cid = info.cid;
+    if (banned.has(cid)) return reject(link, "denied");
+    if (!people.has(cid) && settings.locked) return reject(link, "locked");
+    link.onMessage = (msg) => {
+      const p = people.get(cid);
+      if (p && p.conn === link) handle(p, msg);
     };
-    conn.on("close", gone);
-    conn.on("error", gone);
-  }
-
-  function reject(conn, status) {
-    try { conn.send({ t: "welcome", status }); } catch {}
-    setTimeout(() => conn.close(), 300);
-  }
-
-  function hello(conn, msg) {
-    const cid = typeof msg.cid === "string" && /^[0-9a-f]{16}$/.test(msg.cid) ? msg.cid : null;
-    if (!cid || banned.has(cid)) return reject(conn, "denied");
-    const name = cleanName(msg.name, "Guest");
-    const device = cleanName(msg.device, "Phone");
-    const trusted = typeof msg.k === "string" && msg.k === secret;
-    if (!people.has(cid) && settings.locked) return reject(conn, "locked");
-    if (trusted) return admit(conn, cid, name, device);
-    // Typed the code: someone must say yes (this computer, or an admin's phone).
-    const pend = { cid, name, device, conn };
-    conn.slidepad = { pending: pend };
-    pending.push(pend);
-    try { conn.send({ t: "welcome", status: "pending" }); } catch {}
-    showApproval();
-    syncRoom();
-  }
-
-  function admit(conn, cid, name, device) {
+    link.onClose = () => {
+      const p = people.get(cid);
+      if (p && p.conn === link) syncRoom();
+    };
     let p = people.get(cid);
+    const name = cleanName(info.name, "Guest");
+    const device = cleanName(info.device, "Phone");
     if (!p) {
       const hasAdmin = [...people.values()].some((x) => x.role === "admin");
       p = { cid, name, device, role: hasAdmin ? settings.joinRole : "admin", conn: null };
@@ -269,17 +244,27 @@ export function start(root) {
       p.name = name;
       p.device = device;
     }
-    if (p.conn && p.conn !== conn) { try { p.conn.close(); } catch {} }
-    p.conn = conn;
-    conn.slidepad = { person: p };
-    // Hand over the session secret so this phone reconnects without asking — same trust as scanning.
-    send(p, { t: "welcome", status: "ok", k: secret });
+    if (p.conn && p.conn !== link) p.conn.close();
+    p.conn = link;
+    link.send({ t: "welcome", status: "ok" });
     sendSlide(p);
     syncRoom();
   }
 
-  function dropPending(pend) {
-    const i = pending.indexOf(pend);
+  /** Typed the code: someone must say yes (this computer, or an admin's phone). */
+  function onLobby(info) {
+    const cid = info.cid;
+    if (banned.has(cid)) return host?.lobbyAnswer(cid, "denied");
+    if (!people.has(cid) && settings.locked) return host?.lobbyAnswer(cid, "locked");
+    if (pending.some((x) => x.cid === cid)) return;
+    pending.push({ cid, name: cleanName(info.name, "Guest"), device: cleanName(info.device, "Phone") });
+    host?.lobbyAnswer(cid, "pending");
+    showApproval();
+    syncRoom();
+  }
+
+  function dropPending(cid) {
+    const i = pending.findIndex((x) => x.cid === cid);
     if (i < 0) return;
     pending.splice(i, 1);
     showApproval();
@@ -287,11 +272,11 @@ export function start(root) {
   }
 
   function answer(cid, allow) {
-    const pend = pending.find((x) => x.cid === cid);
-    if (!pend) return;
-    pending.splice(pending.indexOf(pend), 1);
-    if (allow && pend.conn.open) admit(pend.conn, pend.cid, pend.name, pend.device);
-    else { pend.conn.slidepad = null; reject(pend.conn, "denied"); }
+    const i = pending.findIndex((x) => x.cid === cid);
+    if (i < 0) return;
+    pending.splice(i, 1);
+    // Once allowed, the phone receives the room secret and says hello like a scanner would.
+    host?.lobbyAnswer(cid, allow ? "allow" : "denied");
     showApproval();
     syncRoom();
   }
@@ -309,7 +294,7 @@ export function start(root) {
     if (!p) return;
     banned.add(cid);
     people.delete(cid);
-    if (p.conn) { p.conn.slidepad = null; reject(p.conn, "removed"); }
+    if (p.conn) reject(p.conn, "removed");
     toast(`Removed ${p.name}`);
     syncRoom();
   }
@@ -408,11 +393,10 @@ export function start(root) {
   async function broadcastSlide() {
     const token = ++slideToken;
     const d = active(), i = index;
-    const msg = slideMsg();
-    for (const p of online()) send(p, msg);
+    host?.broadcast(slideMsg());
     try {
       const t = await thumbsMsg(d, i);
-      if (token === slideToken) for (const p of online()) send(p, t);
+      if (token === slideToken) host?.broadcast(t);
     } catch {}
   }
 
@@ -680,12 +664,12 @@ export function start(root) {
       const key = t.dataset.setting;
       updateSettings({ [key]: t.dataset.value ?? !settings[key] });
     } else if (act === "reset") {
-      for (const p of people.values()) if (p.conn) { p.conn.slidepad = null; reject(p.conn, "removed"); }
-      for (const x of pending.splice(0)) reject(x.conn, "denied");
+      for (const p of people.values()) if (p.conn) reject(p.conn, "removed");
+      for (const x of pending.splice(0)) host?.lobbyAnswer(x.cid, "denied");
       people.clear();
       banned.clear();
       newSession();
-      startPeer();
+      startNet();
       showApproval();
       syncRoom();
       toast("New code — everyone was disconnected");
@@ -750,8 +734,7 @@ export function start(root) {
     if (e.dataTransfer?.files.length) addFiles(e.dataTransfer.files);
   });
 
-  // Let the broker release our ID straight away so a refresh can reclaim the same code.
-  addEventListener("pagehide", () => peer?.destroy());
+  addEventListener("pagehide", () => host?.stop());
 
   // ── Boot ─────────────────────────────────────────────────────────────────
   if (!/^\d{6}$/.test(code ?? "") || !/^[0-9a-f]{24}$/.test(secret ?? "")) newSession();
@@ -760,6 +743,6 @@ export function start(root) {
   renderPeople();
   renderSettings();
   onSlideChanged();
-  startPeer();
+  startNet();
   loadLibrary();
 }

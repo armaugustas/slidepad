@@ -1,13 +1,11 @@
 // Phone side: follows the live slide and its notes. Drivers (admins, teammates) also change slides
 // and point a laser by touching the slide preview; admins run the room from the menu.
-import {
-  $, CONNECT_TIMEOUT_MS, LOGO, PEER_PREFIX, ROLES, TRANSIENT_PEER_ERRORS, cleanName, createPeer, deviceName, esc, formatCode, prefs, randomId,
-} from "./common.js";
+import { $, LOGO, ROLES, cleanName, deviceName, esc, formatCode, prefs, randomId } from "./common.js";
 import { mountDither } from "./dither.js";
 import { icon } from "./icons.js";
+import { joinRoom, transportSupported } from "./transport.js";
 
-const RECONNECT_TRIES = 40;
-const NOTE_SIZES = [15, 17, 19, 22, 26];
+const NOTE_SIZES = [16, 18, 20, 23, 27];
 
 const haptic = (ms = 8) => { try { navigator.vibrate?.(ms); } catch {} };
 
@@ -20,14 +18,10 @@ function clientId() {
 export function start(root, params) {
   const cid = clientId();
   let name = cleanName(prefs.get("slidepad.name"), deviceName());
-  let peer = null;
-  let conn = null;
+  let client = null;
+  let netToken = 0;
   let code = null;
   let key = null;
-  let admitted = false;
-  let tries = 0;
-  let timeoutTimer = 0;
-  let retryTimer = 0;
   let wakeLock = null;
   let leaving = false;
   let meta = { role: "member", drive: false, admin: null };
@@ -275,7 +269,7 @@ export function start(root, params) {
   function closeSheet() { $("#sheet").hidden = true; }
 
   // ── Input ────────────────────────────────────────────────────────────────
-  const send = (msg) => { try { conn?.open && conn.send(msg); } catch {} };
+  const send = (msg) => client?.send(msg);
 
   function nav(k) {
     if (!meta.drive) return;
@@ -288,9 +282,12 @@ export function start(root, params) {
     const dot = $("#pointer");
     let id = null;
     let pending = null;
-    let raf = 0;
+    let timer = 0;
+    let lastSent = 0;
+    // ~20 updates a second is smooth on the big screen and gentle on the relay.
     const flush = () => {
-      raf = 0;
+      timer = 0;
+      lastSent = performance.now();
       if (pending) send({ t: "point", on: true, x: pending.x, y: pending.y });
     };
     const at = (e) => {
@@ -300,7 +297,7 @@ export function start(root, params) {
       dot.style.left = `${x * 100}%`;
       dot.style.top = `${y * 100}%`;
       pending = { x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 };
-      raf ||= requestAnimationFrame(flush);
+      timer ||= setTimeout(flush, Math.max(0, 50 - (performance.now() - lastSent)));
     };
     fig.addEventListener("pointerdown", (e) => {
       if (!meta.drive || id !== null) return;
@@ -314,6 +311,8 @@ export function start(root, params) {
       if (e.pointerId !== id) return;
       id = null;
       pending = null;
+      clearTimeout(timer);
+      timer = 0;
       fig.classList.remove("pointing");
       send({ t: "point", on: false });
     };
@@ -326,8 +325,6 @@ export function start(root, params) {
   function join(nextCode, nextKey) {
     code = nextCode;
     key = nextKey;
-    admitted = false;
-    tries = 0;
     leaving = false;
     slide = null;
     updateUrl();
@@ -342,68 +339,58 @@ export function start(root, params) {
   }
 
   function teardown() {
-    clearTimeout(timeoutTimer);
-    clearTimeout(retryTimer);
-    try { conn?.close(); } catch {}
-    try { peer?.destroy(); } catch {}
-    conn = null;
-    peer = null;
+    netToken++;
+    client?.end();
+    client = null;
     releaseWakeLock();
   }
 
   const fail = (message) => { leaving = true; renderJoin(message); };
 
-  function retryLater(text) {
+  const FAILURES = {
+    notfound: () => `No screen is showing ${formatCode(code)}. Check the code and try again.`,
+    unreachable: () => "Couldn’t reach the screen. Check it’s still open on the computer.",
+    denied: () => "The screen didn’t let this phone in.",
+    locked: () => "This room is locked. No one new can join right now.",
+    removed: () => "You were removed from the presentation.",
+  };
+
+  async function connect() {
     teardown();
-    if (leaving) return;
-    if (++tries > RECONNECT_TRIES) return fail("Lost the screen. Ask for the code and join again.");
-    setStatus("reconnecting", overlayHtml(esc(text), "Keep this page open. It reconnects on its own."));
-    retryTimer = setTimeout(connect, Math.min(4000, 600 + tries * 300));
+    if (!transportSupported()) return fail("Open the published https:// link — this page can’t connect securely here.");
+    setStatus("connecting");
+    const token = netToken;
+    const live = () => token === netToken;
+    try {
+      const c = await joinRoom({
+        code, secret: key, cid, name, device: deviceName(),
+        onState: (state) => live() && onState(state),
+        onKey: (k) => { if (live()) { key = k; updateUrl(); } },
+        onMessage: (msg) => live() && onMessage(msg),
+        onFail: (reason) => live() && fail(FAILURES[reason]?.() ?? "Couldn’t join."),
+      });
+      if (live()) client = c;
+      else c.end();
+    } catch (err) {
+      console.warn("[slidepad]", err);
+      if (live()) fail("Couldn’t start. Check your internet and try again.");
+    }
   }
 
-  function connect() {
-    teardown();
-    setStatus(admitted ? "reconnecting" : "connecting", admitted ? overlayHtml("Reconnecting…", "Hang tight.") : "");
-    let p;
-    try { p = createPeer(); } catch { return fail("Couldn’t start. Check your internet and try again."); }
-    peer = p;
-    timeoutTimer = setTimeout(() => {
-      if (p !== peer || conn?.open) return;
-      if (admitted) retryLater("Reconnecting…");
-      else fail("Couldn’t reach the screen. Check it’s still open — some strict networks block direct connections.");
-    }, CONNECT_TIMEOUT_MS);
-
-    p.on("open", () => {
-      if (p !== peer) return;
-      // Default (binary) serialization chunks large messages like slide thumbnails; JSON caps at ~16 KB.
-      const c = p.connect(PEER_PREFIX + code, { reliable: true });
-      conn = c;
-      c.on("open", () => {
-        if (c !== conn) return;
-        clearTimeout(timeoutTimer);
-        c.send({ t: "hello", cid, k: key, name, device: deviceName() });
-      });
-      c.on("data", (msg) => c === conn && onMessage(msg));
-      c.on("close", () => {
-        if (c !== conn || leaving) return;
-        if (admitted) retryLater("Screen disconnected");
-        else fail("The screen closed the connection.");
-      });
-    });
-    p.on("error", (err) => {
-      if (p !== peer) return;
-      if (err.type === "peer-unavailable") {
-        if (admitted) retryLater("Waiting for the screen…");
-        else fail(`No screen is showing ${formatCode(code)}. Check the code and try again.`);
-      } else if (TRANSIENT_PEER_ERRORS.has(err.type)) retryLater("Connection hiccup, retrying…");
-      else { console.warn("[slidepad]", err.type, err); fail("Something went wrong. Try again."); }
-    });
+  function onState(state) {
+    if (state === "live") { setStatus("live"); requestWakeLock(); }
+    else if (state === "pending") setStatus("waiting", overlayHtml("Almost in", "Someone at the screen needs to let you in."));
+    else if (state === "lost") setStatus("reconnecting", overlayHtml("Screen disconnected", "Keep this page open. It reconnects on its own."));
+    else setStatus("connecting");
   }
 
   function onMessage(msg) {
     if (!msg || typeof msg !== "object") return;
     switch (msg.t) {
-      case "welcome": return onWelcome(msg);
+      case "welcome":
+        if (msg.status === "ok") haptic(14);
+        else if (FAILURES[msg.status]) fail(FAILURES[msg.status]());
+        return;
       case "meta":
         meta = { role: msg.role, drive: !!msg.drive, admin: msg.admin ?? null };
         if (msg.name) name = msg.name;
@@ -413,26 +400,6 @@ export function start(root, params) {
         return renderSlide();
       case "thumbs":
         return renderThumb(msg);
-    }
-  }
-
-  function onWelcome({ status, k }) {
-    if (status === "ok") {
-      const first = !admitted;
-      admitted = true;
-      tries = 0;
-      if (typeof k === "string" && /^[0-9a-f]{24}$/.test(k) && k !== key) { key = k; updateUrl(); }
-      setStatus("live");
-      requestWakeLock();
-      if (first) haptic(14);
-    } else if (status === "pending") {
-      setStatus("waiting", overlayHtml("Almost in", "Someone at the screen needs to let you in."));
-    } else {
-      fail({
-        denied: "The screen didn’t let this phone in.",
-        removed: "You were removed from the presentation.",
-        locked: "This room is locked. No one new can join right now.",
-      }[status] ?? "Couldn’t join.");
     }
   }
 
@@ -459,8 +426,8 @@ export function start(root, params) {
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible" || !code || leaving || !$("#remote")) return;
-    if (conn?.open) requestWakeLock();
-    else { tries = 0; connect(); }
+    client?.refresh();
+    requestWakeLock();
   });
 
   // ── Boot ─────────────────────────────────────────────────────────────────
