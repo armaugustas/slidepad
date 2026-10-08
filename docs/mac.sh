@@ -9,7 +9,7 @@ DIR="$(mktemp -d -t slidepad)"
 trap 'rm -rf "$DIR"' EXIT INT TERM
 
 if [ "$(uname -s)" != "Darwin" ]; then
-  echo "This is the macOS helper. On Windows, run in PowerShell:  irm $BASE/win.ps1 | iex"
+  echo "This is the macOS helper. On Windows, run in PowerShell:  irm $BASE/win.txt | iex"
   exit 1
 fi
 

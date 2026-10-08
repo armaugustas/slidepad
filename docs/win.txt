@@ -1,5 +1,5 @@
 # Slidepad helper for Windows.
-#   irm https://armaugustas.github.io/slidepad/win.ps1 | iex
+#   irm https://armaugustas.github.io/slidepad/win.txt | iex
 # A loopback-only HTTP server the Slidepad web page calls to press slide keys and move the mouse.
 # It runs only while this window is open; nothing is installed. Press Ctrl+C to stop.
 

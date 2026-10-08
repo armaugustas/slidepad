@@ -422,7 +422,7 @@ export function start(root) {
     const base = new URL("./", location.href).href;
     const machine = OS === "windows" ? "PC" : "Mac";
     const mac = commandBlock("Mac — open <b>Terminal</b> and paste", `curl -fsSL ${base}mac.sh | sh`);
-    const win = commandBlock("Windows — open <b>PowerShell</b> and paste", `irm ${base}win.ps1 | iex`);
+    const win = commandBlock("Windows — open <b>PowerShell</b> and paste", `irm ${base}win.txt | iex`);
     const views = {
       checking: `<div class="panel-state"><span class="spinner"></span><p>Looking for the Slidepad helper on this computer…</p></div>`,
       absent: `

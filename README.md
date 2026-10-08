@@ -33,7 +33,7 @@ curl -fsSL https://armaugustas.github.io/slidepad/mac.sh | sh
 
 ```powershell
 # Windows — PowerShell
-irm https://armaugustas.github.io/slidepad/win.ps1 | iex
+irm https://armaugustas.github.io/slidepad/win.txt | iex
 ```
 
 Nothing is installed. The Mac helper runs from a temporary folder that’s deleted when you press <kbd>Ctrl</kbd>+<kbd>C</kbd> or close the window; the Windows helper is a script that lives only in that PowerShell session. Neither starts at login. On macOS you’ll be asked once to allow **Terminal** under *System Settings → Privacy & Security → Accessibility* — that’s what lets it press keys.
@@ -84,7 +84,7 @@ Open the **Wi-Fi URL** printed by `npm run dev` on the computer (not `localhost`
 | `docs/deck.js` | Demo deck + PDF rendering (pdf.js) with neighbour prefetch |
 | `docs/helper.js` | Talks to the local helper; coalesces pointer moves |
 | `helper/mac/main.swift` | macOS helper (CGEvent), built universal |
-| `docs/win.ps1` | Windows helper (PowerShell + user32) |
+| `docs/win.txt` | Windows helper (PowerShell + user32) |
 
 ## License
 
