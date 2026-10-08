@@ -3,7 +3,7 @@
 <h1 align="center">slidepad</h1>
 
 <p align="center"><b>Your phone is the clicker.</b><br>
-A trackpad and slide remote for any computer — no app, no login, no server.</p>
+Slides, speaker notes and a laser pointer on every phone in the room — no app, no login, no server.</p>
 
 <p align="center"><a href="https://armaugustas.github.io/slidepad/"><b>armaugustas.github.io/slidepad</b></a></p>
 
@@ -11,80 +11,74 @@ A trackpad and slide remote for any computer — no app, no login, no server.</p
 
 ## How it works
 
-1. **Open the site on the computer.** It shows a QR code and a 6-digit code.
-2. **Scan the QR with your phone’s camera.** The phone becomes a trackpad with big Next / Prev buttons.
+1. **Open the site on the computer** that’s connected to the screen. Add your presentations (PDF).
+2. **Scan the QR code with your phone’s camera.** That’s it — the first phone in becomes the **Admin**.
+3. Anyone else who scans joins too. Press <kbd>J</kbd> while presenting to put the join code on screen.
 
-That’s it. Phones are detected automatically — open the same link on a phone and you get the remote.
+Phones are detected automatically: open the same link on a phone and you get the remote.
 
-### Two modes
+## On the phone
 
-| | **Present here** | **Control this computer** |
-|---|---|---|
-| What it drives | Slides inside the browser tab (drop in any PDF) | The real keyboard and mouse — Keynote, PowerPoint, Google Slides, anything |
-| Setup on the computer | Nothing | Paste one line into Terminal / PowerShell |
-| Pointer | Glowing laser dot | Moves the real cursor |
+- **Live slide preview** — the current slide, plus the next one if you can drive.
+- **Speaker notes** — follow the slides live, with adjustable text size.
+- **Back / Next** — big thumb-sized buttons. Flicking the slide preview left or right works too.
+- **Laser** — drag on the pad to steer a glowing dot on the big screen. Slow is precise, fast crosses the screen. Tap for the next slide.
 
-For **Control this computer**, the page asks you to paste one line:
+## Roles
 
-```sh
-# macOS — Terminal
-curl -fsSL https://armaugustas.github.io/slidepad/mac.sh | sh
-```
+| | Sees slides & notes | Changes slides | Laser | Switches presentations, manages people & settings |
+|---|---|---|---|---|
+| **Admin** | ✓ | ✓ | ✓ | ✓ |
+| **Teammate** | ✓ | ✓ | if allowed | |
+| **Member** | ✓ | | | |
 
-```powershell
-# Windows — PowerShell
-irm https://armaugustas.github.io/slidepad/win.txt | iex
-```
+Change anyone’s role from the computer’s **People** panel or from an admin’s phone menu. Settings: what role new people get, whether teammates can use the laser, and **Lock the room** so no one new can join.
 
-Nothing is installed. The Mac helper runs from a temporary folder that’s deleted when you press <kbd>Ctrl</kbd>+<kbd>C</kbd> or close the window; the Windows helper is a script that lives only in that PowerShell session. Neither starts at login. On macOS you’ll be asked once to allow **Terminal** under *System Settings → Privacy & Security → Accessibility* — that’s what lets it press keys.
+Scanning the QR code lets you straight in. Typing the 6-digit code instead needs a yes — from the computer or any admin’s phone.
 
-## Gestures
+## Presentations & notes
 
-| On the phone | In the browser deck | With the helper |
-|---|---|---|
-| Drag on the pad | Moves the laser dot | Moves the mouse |
-| Tap | Clicks — on a slide that means next | Left click |
-| Flick ← / → | Next / previous | <kbd>→</kbd> / <kbd>←</kbd> |
-| Next / Prev buttons | Next / previous | <kbd>→</kbd> / <kbd>←</kbd> |
-| Blank button | Black screen | <kbd>B</kbd> (black screen in Keynote & PowerPoint) |
+- Drop **PDFs** anywhere on the page. They’re remembered in this browser (IndexedDB), so a refresh keeps your library.
+- **Speaker notes** come from a matching **.pptx** — drop it with the PDF (same file name) or use *Add notes* on a card. Hidden slides are skipped so notes line up with the PDF export.
+- Or a **.txt** / **.md** with `---` between slides.
+- Keynote: *File → Export To → PDF* for the slides, and *→ PowerPoint* for the notes.
 
-Pointer speed is accelerated: slow strokes are precise, quick ones cross the screen. On the computer, <kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd> <kbd>F</kbd> (fullscreen) <kbd>O</kbd> (open PDF) and <kbd>B</kbd> also work, as do most USB clickers.
+Keyboard while presenting: <kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd>, <kbd>F</kbd> fullscreen, <kbd>J</kbd> join code, <kbd>H</kbd> / <kbd>Esc</kbd> home. Most USB clickers work too.
 
 ## Architecture
 
 ```
- phone (browser)  ◄──── WebRTC data channel, peer-to-peer ────►  computer (browser tab)
-        │                                                            │
-        └──── one-time handshake via the public PeerJS broker ───────┘
-                                                                     │ fetch → http://127.0.0.1:7421
-                                                                     ▼
-                                                    optional local helper (real keys + mouse)
+ phones (browser)  ◄──── WebRTC data channels, peer-to-peer ────►  computer (browser tab = the host)
+         │                                                                │
+         └──────── one-time handshake via the public PeerJS broker ───────┘
 ```
 
-- **Static site on GitHub Pages.** Everything is in [`docs/`](docs). No backend of our own.
-- **Peer-to-peer.** The phone and computer connect directly over WebRTC (with STUN, and PeerJS’s public TURN relay as a fallback on strict networks). The [PeerJS](https://peerjs.com) broker is only used to introduce them; your input never goes through it.
-- **Pairing.** The 6-digit code is the room. The QR code also carries a 96-bit secret, so a scanned phone is trusted instantly. A phone that *types* the code must be approved with an **Allow** prompt on the computer — because in helper mode, a phone can press keys on your machine.
-- **The helper** listens on `127.0.0.1` only, accepts commands only from the Slidepad origin (and `localhost` for development), rejects DNS-rebinding `Host` headers, and only understands a fixed vocabulary: slide keys, pointer move, click. It can’t type text.
+- **Static site on GitHub Pages** — everything is in [`docs/`](docs). No backend of our own.
+- **Peer-to-peer.** Phones connect directly to the computer over WebRTC (STUN, with PeerJS’s public TURN relay as a fallback on strict networks). The [PeerJS](https://peerjs.com) broker only introduces them.
+- **The computer is the source of truth**: it holds the library, the room (people, roles, settings) and enforces permissions on every message. Each phone gets a stable anonymous ID, so roles survive reconnects and refreshes.
+- **Pairing.** The 6-digit code is the room; the QR also carries a 96-bit secret. Approved phones receive the secret so they can reconnect without asking again.
+
+| Path | What |
+|---|---|
+| `docs/screen.js` | Computer: library, room & roles, presenting, laser |
+| `docs/remote.js` | Phone: join, preview, notes, nav, laser pad, admin menu |
+| `docs/deck.js` | Demo deck (canvas) + PDF rendering (pdf.js) with prefetch and thumbnails |
+| `docs/notes.js` | Speaker notes from .pptx (JSZip) or text |
+| `docs/library.js` | IndexedDB persistence for added presentations |
 
 ## Development
 
 ```sh
-npm install        # PeerJS, pdf.js, qrcode-generator (vendored into docs/vendor)
-npm run vendor     # re-copy the browser builds into docs/vendor
-npm run dev        # serves docs/ on :5173 and prints a Wi-Fi URL your phone can open
-./helper/mac/build.sh   # rebuilds the universal macOS helper into docs/helper/
+npm install      # PeerJS, pdf.js, JSZip, qrcode-generator
+npm run vendor   # copy their browser builds into docs/vendor
+npm run dev      # serves docs/ on :5173 and prints a Wi-Fi URL your phone can open
 ```
 
-Open the **Wi-Fi URL** printed by `npm run dev` on the computer (not `localhost`) so the QR code points somewhere your phone can reach.
+Open the **Wi-Fi URL** on the computer (not `localhost`) so the QR code points somewhere your phone can reach.
 
-| Path | What |
-|---|---|
-| `docs/screen.js` | Computer side: session, QR, approval, deck, laser, helper bridge UI |
-| `docs/remote.js` | Phone side: join, trackpad gestures, reconnect, wake lock |
-| `docs/deck.js` | Demo deck + PDF rendering (pdf.js) with neighbour prefetch |
-| `docs/helper.js` | Talks to the local helper; coalesces pointer moves |
-| `helper/mac/main.swift` | macOS helper (CGEvent), built universal |
-| `docs/win.txt` | Windows helper (PowerShell + user32) |
+## Credits
+
+Logo and interface icons: [Lucide](https://lucide.dev) (ISC License). PDF rendering: [pdf.js](https://mozilla.github.io/pdf.js/). Peer-to-peer: [PeerJS](https://peerjs.com). Notes: [JSZip](https://stuk.github.io/jszip/). QR: [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator).
 
 ## License
 

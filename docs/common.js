@@ -1,19 +1,31 @@
 // Shared between the screen (desktop) and remote (phone) sides.
 
-/** Namespaces our peer IDs on the public PeerJS broker. Bump if the wire protocol changes. */
-export const PEER_PREFIX = "slidepad-v1-";
+/** Namespaces our peer IDs on the public PeerJS broker. Bump when the wire protocol changes. */
+export const PEER_PREFIX = "slidepad-v2-";
 export const CONNECT_TIMEOUT_MS = 15000;
 
-export const LOGO = `<svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
-  <rect width="64" height="64" rx="16" fill="#141417"/>
-  <rect x="1" y="1" width="62" height="62" rx="15" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="2"/>
-  <circle cx="40" cy="23" r="13" fill="var(--laser)" fill-opacity=".16"/>
-  <circle cx="40" cy="23" r="6.5" fill="var(--laser)"/>
-  <path d="M15 44h25" stroke="#f5f5f4" stroke-width="4.5" stroke-linecap="round"/>
-  <path d="M34 37.5 40.5 44 34 50.5" fill="none" stroke="#f5f5f4" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+// The mark is Lucide’s “presentation” icon (ISC) on a laser-coral tile.
+export const LOGO = `<svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+  <rect width="32" height="32" rx="9" fill="var(--laser)"/>
+  <g transform="translate(6 6.5) scale(.833)" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/>
+  </g>
 </svg>`;
 
 export const BRAND = `<span class="brand">${LOGO}<span class="wordmark">slidepad</span></span>`;
+
+/** Roles, most to least powerful. */
+export const ROLES = {
+  admin: { label: "Admin", blurb: "Controls everything and manages people" },
+  teammate: { label: "Teammate", blurb: "Changes slides, sees notes, can use the laser" },
+  member: { label: "Member", blurb: "Follows along with slides and notes" },
+};
+
+export const can = (role, action, settings) =>
+  role === "admin" || (role === "teammate" && (action === "nav" || (action === "laser" && settings.laser)));
+
+export const randomId = (bytes = 8) =>
+  Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -45,6 +57,8 @@ export const prefs = {
 };
 
 /** PeerJS error types that mean "the broker or network hiccuped" rather than a real failure. */
+export const cleanName = (name, fallback) => String(name ?? "").replace(/\s+/g, " ").trim().slice(0, 32) || fallback;
+
 export const TRANSIENT_PEER_ERRORS = new Set(["network", "server-error", "socket-error", "socket-closed", "disconnected"]);
 
 export function createPeer(id) {

@@ -8,6 +8,7 @@
     "vendor": "node scripts/vendor.mjs"
   },
   "devDependencies": {
+    "jszip": "^3.10.1",
     "pdfjs-dist": "^4.10.38",
     "peerjs": "^1.5.4",
     "qrcode-generator": "^1.4.4"

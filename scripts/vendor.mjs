@@ -6,6 +6,7 @@ const files = {
   "node_modules/qrcode-generator/qrcode.js": "qrcode.js",
   "node_modules/pdfjs-dist/build/pdf.min.mjs": "pdf.min.mjs",
   "node_modules/pdfjs-dist/build/pdf.worker.min.mjs": "pdf.worker.min.mjs",
+  "node_modules/jszip/dist/jszip.min.js": "jszip.min.js",
 };
 
 mkdirSync("docs/vendor", { recursive: true });
