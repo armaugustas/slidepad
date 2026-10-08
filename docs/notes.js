@@ -4,7 +4,7 @@ let jszip;
 function loadJSZip() {
   jszip ??= new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = new URL("./vendor/jszip.min.js", import.meta.url).href;
+    s.src = new URL("./vendor/jszip.min.js?v=4346a7f8a7", import.meta.url).href;
     s.onload = () => resolve(window.JSZip);
     s.onerror = () => reject(new Error("Couldn’t load the .pptx reader"));
     document.head.append(s);

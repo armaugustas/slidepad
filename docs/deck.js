@@ -140,8 +140,8 @@ export function demoDeck() {
 let pdfjs;
 async function loadPdfjs() {
   if (!pdfjs) {
-    pdfjs = await import("./vendor/pdf.min.mjs");
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL("./vendor/pdf.worker.min.mjs", import.meta.url).href;
+    pdfjs = await import("./vendor/pdf.min.mjs?v=4346a7f8a7");
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL("./vendor/pdf.worker.min.mjs?v=4346a7f8a7", import.meta.url).href;
   }
   return pdfjs;
 }

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "deploy": "wrangler deploy",
-    "vendor": "node scripts/vendor.mjs"
+    "vendor": "node scripts/vendor.mjs",
+    "stamp": "node scripts/stamp.mjs"
   },
   "devDependencies": {
     "@fontsource-variable/geist": "^5.3.0",

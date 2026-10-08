@@ -1,9 +1,9 @@
 // Phone side: follows the live slide and its notes. Drivers (admins, teammates) also change slides
 // and point a laser by touching the slide preview; admins run the room from the menu.
-import { $, LOGO, ROLES, cleanName, deviceName, esc, formatCode, prefs, randomId } from "./common.js";
-import { mountDither } from "./dither.js";
-import { icon } from "./icons.js";
-import { joinRoom, transportSupported } from "./transport.js";
+import { $, LOGO, ROLES, cleanName, deviceName, esc, formatCode, prefs, randomId } from "./common.js?v=4346a7f8a7";
+import { mountDither } from "./dither.js?v=4346a7f8a7";
+import { icon } from "./icons.js?v=4346a7f8a7";
+import { joinRoom, transportSupported } from "./transport.js?v=4346a7f8a7";
 
 const NOTE_SIZES = [16, 18, 20, 23, 27];
 

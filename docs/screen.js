@@ -1,12 +1,12 @@
 // Desktop side: hosts the session, keeps the presentation library, runs the room (people + roles),
 // and presents slides with a laser that phones point by touching their slide preview.
-import { $, LOGO, ROLES, canDrive, cleanName, esc, formatCode, prefs, randomId, session } from "./common.js";
-import { demoDeck, pdfDeck } from "./deck.js";
-import { mountDither } from "./dither.js";
-import { icon } from "./icons.js";
-import { library } from "./library.js";
-import { isNotesFile, notesFromFile } from "./notes.js";
-import { hostRoom, transportSupported } from "./transport.js";
+import { $, LOGO, ROLES, canDrive, cleanName, esc, formatCode, prefs, randomId, session } from "./common.js?v=4346a7f8a7";
+import { demoDeck, pdfDeck } from "./deck.js?v=4346a7f8a7";
+import { mountDither } from "./dither.js?v=4346a7f8a7";
+import { icon } from "./icons.js?v=4346a7f8a7";
+import { library } from "./library.js?v=4346a7f8a7";
+import { isNotesFile, notesFromFile } from "./notes.js?v=4346a7f8a7";
+import { hostRoom, transportSupported } from "./transport.js?v=4346a7f8a7";
 
 const SESSION_KEY = "slidepad.host";
 const ACTIVE_KEY = "slidepad.active";
