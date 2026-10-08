@@ -1,0 +1,15 @@
+{
+  "name": "slidepad",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "deploy": "wrangler deploy",
+    "vendor": "node scripts/vendor.mjs"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "^4.10.38",
+    "peerjs": "^1.5.4",
+    "qrcode-generator": "^1.4.4"
+  }
+}

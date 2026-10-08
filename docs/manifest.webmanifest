@@ -1,0 +1,10 @@
+{
+  "name": "Slidepad",
+  "short_name": "Slidepad",
+  "description": "Your phone is the clicker. Trackpad and slide remote for any computer — no app, no login.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0c0c0e",
+  "theme_color": "#0c0c0e",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
